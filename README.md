@@ -2,6 +2,11 @@
 
 DataModel is a Python library that provides a fast and efficient way to interact with databases using Pydantic models.
 
+
+## Disclaimer
+This project is in very early development and may not be stable. Use at your own risk.
+
+
 ## Installation
 
 Use the package manager [pip](https://pip.pypa.io/en/stable/) to install DataModel.
