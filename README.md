@@ -12,7 +12,7 @@ This project is in very early development and may not be stable. Use at your own
 Use the package manager [pip](https://pip.pypa.io/en/stable/) to install DataModel.
 
 ```sh
-pip install data_model
+pip install DataModel
 ```
 
 ## Usage
