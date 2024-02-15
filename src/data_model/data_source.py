@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Union, Any
 
 if TYPE_CHECKING:
     from .base import DataModel
@@ -19,7 +19,7 @@ class DataSource:
     ) -> list["DataModel"]:
         raise NotImplementedError()
 
-    def save(self, data_model: "DataModel") -> None:
+    def save(self, data_model: "DataModel") -> Any:
         raise NotImplementedError()
 
     def delete(self, data_model: "DataModel") -> None:

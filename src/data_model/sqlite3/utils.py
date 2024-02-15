@@ -1,149 +1,120 @@
-from typing import get_origin, Union, TYPE_CHECKING
+from typing import get_origin, Union, TYPE_CHECKING, Any
 from types import UnionType
 from datetime import datetime, date
 from pydantic import BaseModel
+from pydantic.fields import FieldInfo
 from collections.abc import Iterable
-
-from ..errors import (
-    UnsupportedTypeError,
-    MultiplePrimaryKeysError,
-    MissingPrimaryKeyError,
-    AutoIncrementError,
-    InvalidForeignKeyError,
-    QueryError,
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Date,
+    DateTime,
+    Float,
+    Boolean,
+    LargeBinary,
+    JSON,
+    ForeignKey,
+    Table,
+    MetaData,
 )
+
 
 if TYPE_CHECKING:
     from ..base import DataModel
 
 
-def convert_type_to_sqlite3(type_: type) -> str:
-    nullable = " NOT NULL"
+def is_nullable(type_: type) -> tuple[bool, type]:
+    nullable = False
     if get_origin(type_) is UnionType or get_origin(type_) is Union:
         if len(type_.__args__) > 2:
-            raise UnsupportedTypeError(
-                f"Union with more than 2 types is not supported: {type_}"
-            )
+            raise TypeError(f"Union with more than 2 types is not supported: {type_}")
         if type(None) in type_.__args__:
-            nullable = ""
+            nullable = True
             type_ = next(t for t in type_.__args__ if t is not type(None))
         else:
-            raise UnsupportedTypeError(f"Union without None is not supported: {type_}")
+            raise TypeError(f"Union without None is not supported: {type_}")
+    return nullable, type_
 
-    if type_ is int:
-        return f"INTEGER{nullable}"
-    if type_ is float:
-        return f"REAL{nullable}"
-    if type_ is str:
-        return f"TEXT{nullable}"
-    if type_ is bytes:
-        return f"BLOB{nullable}"
-    if type_ is bool:
-        return f"INTEGER{nullable}"
-    if type_ is datetime:
-        return f"TIMESTAMP{nullable}"
-    if type_ is date:
-        return f"DATE{nullable}"
 
+def get_sqlalchemy_type(type_: type) -> Any:
+    nullable, type_ = is_nullable(type_)
     if issubclass(type_, BaseModel):
         try:
             primary_key = type_.get_primary_key()
             field = type_.model_fields[primary_key]
             if isinstance(field.annotation, BaseModel):
-                raise UnsupportedTypeError(
+                raise TypeError(
                     f"Nested models are not supported as primary key: {type_}"
                 )
-            return f"{convert_type_to_sqlite3(field.annotation)}{nullable} FOREIGN KEY REFERENCES {type_.__name__} ({primary_key})"
+            return get_sqlalchemy_type(field.annotation)
         except AttributeError:
-            return f"JSON{nullable}"
-    if type_ is dict:
-        return f"JSON{nullable}"
-
+            return JSON
+    if issubclass(type_, str):
+        return String
+    if issubclass(type_, float):
+        return Float
+    if issubclass(type_, bool):
+        return Boolean
+    if issubclass(type_, int):
+        return Integer
+    if issubclass(type_, datetime):
+        return DateTime
+    if issubclass(type_, date):
+        return Date
+    if issubclass(type_, bytes):
+        return LargeBinary
     if issubclass(type_, (Iterable, dict)):
-        return f"JSON{nullable}"
+        return JSON
+    raise TypeError(f"Unsupported type: {type_}")
 
-    raise UnsupportedTypeError(f"Unsupported type: {type_}")
+
+def get_foreign_key_from_field(field: FieldInfo) -> ForeignKey | None:
+    nullable, type_ = is_nullable(field.annotation)
+    if not field.json_schema_extra:
+        field.json_schema_extra = {}
+    foreign_key = field.json_schema_extra.get("foreign_key", None)
+    if not foreign_key and issubclass(type_, BaseModel):
+        try:
+            primary_key = type_.get_primary_key()
+            return ForeignKey(f"{type_.__name__}.{primary_key}")
+        except AttributeError:
+            return None
+    if not foreign_key:
+        return None
+    if not isinstance(foreign_key, str):
+        if not isinstance(foreign_key, list) and not all(
+            isinstance(fk, str) for fk in foreign_key
+        ):
+            raise ValueError(
+                f"foreign_key must be a string or a list of strings: {foreign_key}"
+            )
+    return ForeignKey(foreign_key)
 
 
-def generate_save_query(data_model: type["DataModel"]) -> str:
-    fields = []
+def get_column_from_field(field_name: str, field: FieldInfo) -> Column:
+    type_ = field.annotation
+    if not field.json_schema_extra:
+        field.json_schema_extra = {}
+    primary_key = field.json_schema_extra.get("primary_key", False)
+    unique = field.json_schema_extra.get("unique", None)
+    foreign_key = get_foreign_key_from_field(field)
+
+    nullable, type_ = is_nullable(type_)
+    sqlalchemy_type = get_sqlalchemy_type(type_)
+
+    return Column(
+        name=field_name,
+        type_=sqlalchemy_type,
+        primary_key=primary_key,
+        unique=unique,
+        nullable=nullable,
+        foreign_key=foreign_key,
+    )
+
+
+def get_sqlalchemy_table(data_model: type["DataModel"]) -> Table:
+    columns = []
     for field_name, field in data_model.model_fields.items():
-        if not field.json_schema_extra:
-            field.json_schema_extra = {}
-        if field.json_schema_extra.get("primary_key", False):
-            continue
-        fields.append(field_name)
-    query = f"INSERT INTO {data_model.__name__} ({', '.join(fields)}) VALUES ({', '.join(['?'] * len(fields))})"
-    query += f" ON CONFLICT ({data_model.get_primary_key()}) DO UPDATE SET {', '.join([f'{field}=excluded.{field}' for field in fields])}"
-    return query
-
-
-def generate_deletion_query(data_mode: "DataModel") -> str:
-    return f"DELETE FROM {data_mode.__name__} WHERE {data_mode.get_primary_key()} = ?"
-
-
-def generate_create_table_query(data_mode: "DataModel") -> str:
-    fields = []
-    for field_name, field in data_mode.model_fields.items():
-        field_str = f"{field_name} {convert_type_to_sqlite3(field.annotation)}"
-        if not field.json_schema_extra:
-            field.json_schema_extra = {}
-
-        if field.json_schema_extra.get("primary_key", False):
-            field_str += " PRIMARY KEY"
-            if field.json_schema_extra.get("autoincrement", False):
-                if not (field.annotation is int or int in field.annotation.__args__):
-                    raise AutoIncrementError(
-                        f"autoincrement is only supported for int: {field_name}"
-                    )
-                field_str += " AUTOINCREMENT"
-        if field.json_schema_extra.get(
-            "autoincrement", False
-        ) and not field.json_schema_extra.get("primary_key", False):
-            raise AutoIncrementError(
-                f"autoincrement is only supported for primary key: {field_name}"
-            )
-        if field.json_schema_extra.get("unique", False):
-            field_str += " UNIQUE"
-        if field.json_schema_extra.get("foreign_key", False):
-            foreign_key = field.json_schema_extra["foreign_key"]
-            if not isinstance(foreign_key, str):
-                if not isinstance(foreign_key, list) and not all(
-                    isinstance(fk, str) for fk in foreign_key
-                ):
-                    raise InvalidForeignKeyError(
-                        f"foreign_key must be a string or a list of strings: {foreign_key}"
-                    )
-            field_str += (
-                f" FOREIGN KEY REFERENCES {field.json_schema_extra['foreign_key']}"
-            )
-        fields.append(field_str)
-
-    primary_keys = [
-        field_name
-        for field_name, field in data_mode.model_fields.items()
-        if field.json_schema_extra.get("primary_key", False)
-    ]
-    if len(primary_keys) > 1:
-        raise MultiplePrimaryKeysError(f"Multiple primary keys defined: {primary_keys}")
-    if len(primary_keys) == 0:
-        raise MissingPrimaryKeyError(f"Missing primary key")
-
-    return f"CREATE TABLE {data_mode.__name__} ({', '.join(fields)})"
-
-
-def generate_select_query(
-    data_model: "DataModel", limit: int = None, where_attr: list[str] = None
-) -> str:
-    query = f"SELECT * FROM {data_model.__name__}"
-
-    if where_attr:
-        for attr in where_attr:
-            if attr not in data_model.model_fields:
-                raise QueryError(f"Unknown field: {attr}")
-        query += f" WHERE {' AND '.join([f'{attr} = ?' for attr in where_attr])}"
-    if limit:
-        if limit < 0:
-            raise QueryError(f"Limit must be a positive integer: {limit}")
-        query += f" LIMIT {limit}"
-    return query
+        columns.append(get_column_from_field(field_name, field))
+    return Table(data_model.__name__, MetaData(), *columns)

@@ -1,7 +1,6 @@
 from pydantic import BaseModel
 from typing import ClassVar, Self
 
-from .errors import MissingPrimaryKeyError
 from .data_source import DataSource
 from .sqlite3 import SQLite3DataSource
 
@@ -16,22 +15,23 @@ class DataModel(BaseModel):
                 field.json_schema_extra = {}
             if field.json_schema_extra.get("primary_key", False):
                 return field_name
-        raise MissingPrimaryKeyError(f"Missing primary key in {cls.__name__}")
+        raise ValueError(f"Missing primary key in {cls.__name__}")
 
     @classmethod
     def create_source(cls, ignore_if_exists: bool = False) -> None:
-        raise NotImplementedError()
+        cls.__data_source__.create_source(cls, ignore_if_exists)
 
     @classmethod
-    def get_one(cls, where: dict) -> Self | None:
-        raise NotImplementedError()
+    def get_one(cls, **where) -> Self | None:
+        return cls.__data_source__.get_one(cls, where)
 
     @classmethod
-    def get_all(cls, where: dict = None) -> list[Self]:
-        raise NotImplementedError()
+    def get_all(cls, **where) -> list[Self]:
+        return cls.__data_source__.get_all(cls, where)
 
     def save(self) -> None:
-        raise NotImplementedError()
+        primary_key = self.get_primary_key()
+        setattr(self, primary_key, self.__data_source__.save(self))
 
     def delete(self) -> None:
-        raise NotImplementedError()
+        self.__data_source__.delete(self)
