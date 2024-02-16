@@ -1,8 +1,8 @@
-from pydantic import BaseModel
 from typing import ClassVar, Self
 
-from .data_source import DataSource
-from .sqlite3 import SQLite3DataSource
+from pydantic import BaseModel
+
+from .data_sources import DataSource, SQLAlchemyDataSource
 
 
 class DataModel(BaseModel):
@@ -18,7 +18,9 @@ class DataModel(BaseModel):
             age: int
     """
 
-    __data_source__: ClassVar[DataSource] = SQLite3DataSource(database="database.db")
+    __data_source__: ClassVar[DataSource] = SQLAlchemyDataSource(
+        database_url="sqlite:///database.db"
+    )
 
     @classmethod
     def get_primary_key(cls) -> str:
