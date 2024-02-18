@@ -1,7 +1,7 @@
-from typing import TYPE_CHECKING, Union, Any
+from typing import TYPE_CHECKING, Any, Union
 
 if TYPE_CHECKING:
-    from .base import DataModel
+    from ..base import DataModel
 
 
 class DataSource:

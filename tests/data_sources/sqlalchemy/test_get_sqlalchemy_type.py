@@ -1,20 +1,12 @@
-import pytest
-
-from pydantic import Field
 from typing import Optional
-from sqlalchemy import (
-    Integer,
-    Float,
-    Boolean,
-    DateTime,
-    Date,
-    LargeBinary,
-    JSON,
-    String,
-)
+
+import pytest
+from pydantic import Field
+from sqlalchemy import (JSON, Boolean, Date, DateTime, Float, Integer,
+                        LargeBinary, String)
 
 from data_model import *
-from data_model.sqlite3.utils import *
+from data_model.data_sources.sqlalchemy.base import *
 
 
 def test_int():
@@ -91,3 +83,7 @@ def test_nested_model():
         nested: NestedModel
 
     assert get_sqlalchemy_type(TestModel) == JSON
+
+
+def test_list_of_str():
+    assert get_sqlalchemy_type(list[str]) == JSON
