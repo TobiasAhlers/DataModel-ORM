@@ -4,7 +4,7 @@ import pytest
 from pydantic.fields import FieldInfo
 
 from data_model import *
-from data_model.data_sources.sqlalchemy.base import *
+from data_model.data_sources.utils import *
 
 
 def test_int():
