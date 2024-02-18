@@ -1,8 +1,9 @@
-from pydantic import BaseModel
 from typing import ClassVar, Self
 
-from .data_source import DataSource
-from .sqlite3 import SQLite3DataSource
+from pydantic import BaseModel
+
+from .data_sources import DataSource
+from .data_sources.sqlite3 import SQLite3DataSource
 
 
 class DataModel(BaseModel):
@@ -71,7 +72,7 @@ class DataModel(BaseModel):
             >>> print(user)
             User(name='John Doe', age=30)
         """
-        return cls.__data_source__.get_one(cls, where)
+        return cls.__data_source__.get_one(data_model=cls, where=where)
 
     @classmethod
     def get_all(cls, **where) -> list[Self]:
@@ -89,7 +90,7 @@ class DataModel(BaseModel):
             >>> print(users)
             [User(name='John Doe', age=30), User(name='Jane Doe', age=30)]
         """
-        return cls.__data_source__.get_all(cls, where)
+        return cls.__data_source__.get_all(data_model=cls, where=where)
 
     def save(self) -> None:
         """
@@ -99,8 +100,10 @@ class DataModel(BaseModel):
             >>> user = User(name='John Doe', age=30)
             >>> user.save()
         """
+
+        response = self.__data_source__.save(self)
         primary_key = self.get_primary_key()
-        setattr(self, primary_key, self.__data_source__.save(self))
+        setattr(self, primary_key, response)
 
     def delete(self) -> None:
         """
