@@ -1,8 +1,8 @@
 import pytest
 from pydantic import Field
 
-from data_model import *
-from data_model.data_sources.sqlite3 import *
+from data_model_orm import *
+from data_model_orm.data_sources.sqlite3 import *
 
 
 def test_foreign_key_in_field():

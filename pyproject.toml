@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "datamodel_orm"
+version = "0.1.0"
+authors = [
+  { name="Tobias Ahlers", email="93325697+TobiasAhlers@users.noreply.github.com" },
+]
+description = "A fast and efficient way to interact with databases using pydantic models"
+readme = "README.md"
+requires-python = ">=3.11"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "pydantic"
+]
+
+[project.urls]
+Homepage = "https://github.com/pypa/sampleproject"
+Issues = "https://github.com/pypa/sampleproject/issues"

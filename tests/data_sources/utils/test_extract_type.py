@@ -2,7 +2,7 @@ from typing import Optional, Union
 
 import pytest
 
-from data_model.data_sources.utils import *
+from data_model_orm.data_sources.utils import *
 
 
 def test_int():
