@@ -7,7 +7,7 @@ long_description = (this_directory / "README.md").read_text()
 
 
 setup(
-    name="DataModel",
+    name="data_model",
     version="0.1.0",
     description="A fast and efficient way to interact with databases using pydantic models",
     author="Tobias Ahlers",
