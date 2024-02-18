@@ -6,9 +6,7 @@ DataModel is a Python library that provides a fast and efficient way to interact
 
 Use the package manager [pip](https://pip.pypa.io/en/stable/) to install DataModel.
 
-```sh
-pip install DataModel
-```
+    pip install DataModel
 
 ## Usage
 
@@ -17,53 +15,41 @@ This example demonstrates how to use the User data model in Python. The User dat
 ### Setup
 First, import the necessary modules and define the User data model.
 
-```python
-from typing import Optional
-from pydantic import Field
-from data_model import DataModel
+    from typing import Optional
+    from pydantic import Field
+    from data_model import DataModel
 
-class User(DataModel):
-    id: Optional[int] = Field(json_schema_extra={"primary_key": True}, default=None)
-    name: str
-    age: int
-```
+    class User(DataModel):
+        id: Optional[int] = Field(json_schema_extra={"primary_key": True}, default=None)
+        name: str
+        age: int
 
 ### Creating the Data Source
 Create the data source for the User model. If the data source already exists, this operation will be ignored.
 
-```python
-User.create_source(ignore_if_exists=True)
-```
+    User.create_source(ignore_if_exists=True)
 
 ### Saving a New User
 To save a user, instantiate the User class and call the save method.
 
-```python
-user = User(name="John", age=30)
-user.save()
-print(user.id)  # Prints the ID of the newly created user
-```
+    user = User(name="John", age=30)
+    user.save()
+    print(user.id)  # Prints the ID of the newly created user
 
 ### Retrieving a User
 To retrieve a user, use the get_one method and provide the user's name.
 
-```python
-user = User.get_one(name="John")
-```
+    user = User.get_one(name="John")
 
 ### Retrieving All Users with a Specific Name
 To retrieve all users with a specific name, use the get_all method and provide the name.
 
-```python
-users = User.get_all(name="John")
-```
+    users = User.get_all(name="John")
 
 ### Deleting a User
 To delete a user, call the delete method on a User instance.
 
-```python
-user.delete()
-```
+    user.delete()
 
 Please note that the actual usage may vary depending on the implementation of the DataModel class and the data source.
 
