@@ -8,7 +8,6 @@ setup(
     author="Tobias Ahlers",
     author_email="93325697+TobiasAhlers@users.noreply.github.com",
     install_requires=[
-        "pydantic",
-        "sqlalchemy",
+        "pydantic"
     ],
 )
