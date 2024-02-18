@@ -3,8 +3,8 @@ import pytest
 from typing import Optional, Union
 from pydantic import BaseModel, Field
 
-from data_model import *
-from data_model.data_sources.sqlite3 import *
+from data_model_orm import *
+from data_model_orm.data_sources.sqlite3 import *
 
 
 def test_int():

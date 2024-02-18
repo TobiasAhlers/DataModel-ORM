@@ -1,12 +1,12 @@
-# DataModel
+# DataModel ORM
 
-DataModel is a Python library that provides a fast and efficient way to interact with databases using Pydantic models.
+DataModel ORM is a Python library that provides a fast and efficient way to interact with databases using Pydantic models.
 
 ## Installation
 
 Use the package manager [pip](https://pip.pypa.io/en/stable/) to install DataModel.
 
-    pip install DataModel
+    pip install datamodel_orm
 
 ## Usage
 
@@ -17,7 +17,7 @@ First, import the necessary modules and define the User data model.
 
     from typing import Optional
     from pydantic import Field
-    from data_model import DataModel
+    from data_model_orm import DataModel
 
     class User(DataModel):
         id: Optional[int] = Field(json_schema_extra={"primary_key": True}, default=None)

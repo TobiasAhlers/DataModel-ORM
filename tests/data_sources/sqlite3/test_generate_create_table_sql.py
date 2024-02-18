@@ -2,8 +2,8 @@ import pytest
 
 from typing import Optional
 from pydantic import Field, BaseModel
-from data_model import *
-from data_model.data_sources.sqlite3 import *
+from data_model_orm import *
+from data_model_orm.data_sources.sqlite3 import *
 
 
 def test_id_and_attr():

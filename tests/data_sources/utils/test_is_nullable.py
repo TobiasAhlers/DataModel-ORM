@@ -3,8 +3,8 @@ from typing import Optional
 import pytest
 from pydantic.fields import FieldInfo
 
-from data_model import *
-from data_model.data_sources.utils import *
+from data_model_orm import *
+from data_model_orm.data_sources.utils import *
 
 
 def test_int():
