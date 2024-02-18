@@ -7,9 +7,25 @@ from typing import TYPE_CHECKING, Any, Union, get_origin
 
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
-from sqlalchemy import (JSON, Boolean, Column, Date, DateTime, Float,
-                        ForeignKey, Integer, LargeBinary, String, Table,
-                        create_engine)
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    LargeBinary,
+    String,
+    Table,
+    create_engine,
+    Row,
+    delete,
+    select,
+    insert,
+    update,
+)
 from sqlalchemy.orm import Session, registry
 
 from ..base import DataSource
@@ -98,6 +114,9 @@ def get_sqlalchemy_type(type_: type) -> Any:
     if issubclass(type_, BaseModel):
         try:
             primary_key = type_.get_primary_key()
+            raise TypeError(
+                f"Nested DataModels are not supported."
+            )
             field = type_.model_fields[primary_key]
             if isinstance(field.annotation, BaseModel):
                 raise TypeError(
@@ -212,6 +231,41 @@ def get_sqlalchemy_table(
     return Table(data_model.__name__, data_source.registry.metadata, *columns)
 
 
+def convert_sqlalchemy_row_to_data_model(
+    row: Row, data_model: type["DataModel"]
+) -> "DataModel":
+    """
+    Convert a SQLAlchemy row to a data model.
+
+    Args:
+        row (Row): The row to convert.
+        data_model (type["DataModel"]): The data model to convert to.
+
+    Returns:
+        DataModel: The corresponding data model.
+
+    Example:
+        >>> convert_sqlalchemy_row_to_data_model(row, MyDataModel)
+        <MyDataModel id=1>
+    """
+    args = {}
+    for index, field_name, field in zip(
+        range(len(row)),
+        data_model.model_fields.keys(),
+        data_model.model_fields.values(),
+    ):
+        type_ = extract_type(field.annotation)
+        if issubclass(type_, BaseModel):
+            try:
+                primary_key = type_.get_primary_key()
+                args[field_name] = type_.get_one(**{primary_key: row[index]})
+            except AttributeError:
+                pass
+        else:
+            args[field_name] = row[index]
+    return data_model(**args)
+
+
 class SQLAlchemyDataSource(DataSource):
     """
     SQLAlchemyDataSource is a subclass of DataSource that interacts with a SQLAlchemy database.
@@ -231,35 +285,6 @@ class SQLAlchemyDataSource(DataSource):
         self.engine = create_engine(database_url)
         self.tables = {}
 
-    def register_table(self, table: Table) -> None:
-        """
-        Register a table with the data source.
-
-        Args:
-            table (Table): The table to register.
-
-        Example:
-            >>> ds = SQLAlchemyDataSource("sqlite:///database.db")
-            >>> table = get_sqlalchemy_table(MyDataModel, ds)
-            >>> ds.register_table(table)
-        """
-
-        def constructor(self, **kwargs):
-            for key, value in kwargs.items():
-                setattr(self, key, value)
-
-        cls = type(
-            table.name,
-            (object,),
-            {"__init__": constructor}
-            | {column: None for column in table.columns.keys()},
-        )
-        self.registry.map_imperatively(cls, table)
-        self.tables[table.name] = {
-            "table": table,
-            "class": cls,
-        }
-
     def get_table(self, data_model: type["DataModel"]) -> Table:
         """
         Get a SQLAlchemy table for a given data model.
@@ -274,9 +299,12 @@ class SQLAlchemyDataSource(DataSource):
             >>> ds = SQLAlchemyDataSource("sqlite:///database.db")
             >>> table = ds.get_table(MyDataModel)
         """
-        if data_model.__name__ not in self.tables:
-            self.register_table(get_sqlalchemy_table(data_model, self))
-        return self.tables[data_model.__name__]["table"]
+        try:
+            return self.tables[data_model.__name__]
+        except KeyError:
+            table = get_sqlalchemy_table(data_model, self)
+            self.tables[data_model.__name__] = table
+            return table
 
     def create_source(
         self, data_model: type["DataModel"], ignore_if_exists: bool = False
@@ -292,7 +320,15 @@ class SQLAlchemyDataSource(DataSource):
             >>> ds = SQLAlchemyDataSource("sqlite:///database.db")
             >>> ds.create_source(MyDataModel, ignore_if_exists=True)
         """
-        raise NotImplementedError()
+        for field in data_model.model_fields.values():
+            type_ = extract_type(field.annotation)
+            if issubclass(type_, BaseModel):
+                try:
+                    type_.get_primary_key()
+                    self.create_source(type_, ignore_if_exists=True)
+                except AttributeError:
+                    pass
+        self.get_table(data_model).create(self.engine, checkfirst=ignore_if_exists)
 
     def get_one(
         self, data_model: type["DataModel"], where: dict
@@ -311,7 +347,13 @@ class SQLAlchemyDataSource(DataSource):
             >>> ds = SQLAlchemyDataSource("sqlite:///database.db")
             >>> record = ds.get_one(MyDataModel, {"id": 1})
         """
-        raise NotImplementedError()
+        with Session(self.engine) as session:
+            result = (
+                session.query(self.get_table(data_model)).filter_by(**where).first()
+            )
+            if result is None:
+                return None
+            return convert_sqlalchemy_row_to_data_model(tuple(result), data_model)
 
     def get_all(self, data_model: type["DataModel"], where: dict) -> list["DataModel"]:
         """
@@ -328,20 +370,66 @@ class SQLAlchemyDataSource(DataSource):
             >>> ds = SQLAlchemyDataSource("sqlite:///database.db")
             >>> records = ds.get_all(MyDataModel, {"age": 21})
         """
-        raise NotImplementedError()
+        with Session(self.engine) as session:
+            results = session.query(self.get_table(data_model)).filter_by(**where).all()
+            return_ = []
+            for result in results:
+                return_.append(convert_sqlalchemy_row_to_data_model(result, data_model))
+            return return_
 
-    def save(self, data_model: DataModel) -> None:
+    def save(self, data_model: DataModel) -> Any:
         """
         Save a record to the data source.
 
         Args:
             data_model (type["DataModel"]): The data model to save.
 
+        Returns:
+            Any: The saved record.
+
         Example:
             >>> ds = SQLAlchemyDataSource("sqlite:///database.db")
             >>> ds.save(MyDataModel)
         """
-        raise NotImplementedError()
+        primary_key = data_model.get_primary_key()
+        primary_key_value = getattr(data_model, primary_key)
+
+        args = {}
+        for field_name, field in data_model.model_fields.items():
+            type_ = extract_type(field.annotation)
+            if issubclass(type_, BaseModel):
+                try:
+                    field_primary_key = type_.get_primary_key()
+                    key_value = self.save(getattr(data_model, field_name))
+                    setattr(
+                        data_model,
+                        field_name,
+                        key_value
+                    )
+                except AttributeError:
+                    args[field_name] = getattr(data_model, field_name)
+            else:
+                args[field_name] = getattr(data_model, field_name)
+
+        if data_model.get_one(**{primary_key: primary_key_value}) is None:
+            with Session(self.engine) as session:
+                stmt = insert(self.get_table(data_model.__class__)).values(**args)
+                res = session.execute(stmt)
+                session.commit()
+                return res.lastrowid
+        else:
+            with Session(self.engine) as session:
+                stmt = (
+                    update(self.get_table(data_model.__class__))
+                    .where(
+                        getattr(self.get_table(data_model.__class__).c, primary_key)
+                        == primary_key_value
+                    )
+                    .values(**args)
+                )
+                res = session.execute(stmt)
+                session.commit()
+                return res.lastrowid
 
     def delete(self, data_model: DataModel) -> None:
         """
@@ -355,4 +443,12 @@ class SQLAlchemyDataSource(DataSource):
             >>> ds = SQLAlchemyDataSource("sqlite:///database.db")
             >>> ds.delete(MyDataModel, {"id": 1})
         """
-        raise NotImplementedError()
+        with Session(self.engine) as session:
+            primary_key = data_model.get_primary_key()
+            primary_key_value = getattr(data_model, primary_key)
+            stmt = delete(self.get_table(data_model.__class__)).where(
+                getattr(self.get_table(data_model.__class__).c, primary_key)
+                == primary_key_value
+            )
+            session.execute(stmt)
+            session.commit()

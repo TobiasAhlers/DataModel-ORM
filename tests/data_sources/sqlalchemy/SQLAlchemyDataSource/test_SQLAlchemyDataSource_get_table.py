@@ -18,13 +18,12 @@ def test_registered_table(data_source: SQLAlchemyDataSource):
     class DataModelTest(DataModel):
         id: Optional[int] = Field(json_schema_extra={"primary_key": True})
 
-    data_source.tables["DataModelTest"] = {
-        "table": get_sqlalchemy_table(
-            data_model=DataModelTest, data_source=data_source
-        ),
-    }
+    data_source.tables["DataModelTest"] = (
+        get_sqlalchemy_table(data_model=DataModelTest, data_source=data_source)
+    )
 
     table = data_source.get_table(data_model=DataModelTest)
+    print(table)
     assert table.name == "DataModelTest"
     assert len(table.c) == 1
     assert isinstance(table.c.id.type, Integer)
