@@ -33,6 +33,8 @@ def extract_type(type_: type) -> type:
         else:
             raise TypeError(f"Union without None is not supported: {type_}")
     try:
+        if issubclass(get_origin(type_), dict):
+            return dict
         if issubclass(get_origin(type_), Iterable):
             return Iterable
     except TypeError:

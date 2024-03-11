@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Optional, Union, Any
 
 import pytest
 
@@ -29,3 +29,7 @@ def test_union_int_str():
 def test_union_int_str_none():
     with pytest.raises(TypeError):
         extract_type(Union[int, str, None])
+
+
+def test_dict_str_any():
+    assert extract_type(dict[str, Any]) == dict
