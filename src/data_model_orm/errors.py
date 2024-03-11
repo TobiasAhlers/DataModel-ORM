@@ -14,3 +14,9 @@ class DataSourceAlreadyExistsError(DataSourceError):
     """
     Raised when trying to create a data source that already exists.
     """
+
+
+class ConversionError(DataModelError):
+    """
+    Raised when a conversion fails.
+    """

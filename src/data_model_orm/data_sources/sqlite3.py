@@ -1,7 +1,7 @@
 from sqlite3 import connect, OperationalError
 from collections.abc import Iterable
 from datetime import date, datetime
-from json import dumps, loads
+from json import dumps, loads, JSONDecodeError
 from typing import TYPE_CHECKING, Union, Any, Literal
 from re import match
 
@@ -111,8 +111,15 @@ def convert_value(value: Any, type_: type) -> Any:
         if is_data_model(type_):
             return type_.get_one(**{type_.get_primary_key(): value})
         return type_.model_validate_json(value)
-    if issubclass(type_, (dict, list)):
-        return loads(value)
+    if issubclass(type_, (str, int, float, bool, bytes)):
+        return value
+    if issubclass(type_, (dict, list, Iterable)):
+        try:
+            return loads(value)
+        except JSONDecodeError:
+            raise ConversionError(
+                f"Unable to decode JSON: {value}. Please use a valid JSON string."
+            )
     return value
 
 
