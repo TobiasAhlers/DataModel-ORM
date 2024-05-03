@@ -10,8 +10,15 @@ class ORMConfig(BaseModel):
     db_location: str = Field(default="database.db", description="Database location")
     ignore_if_exists: bool = Field(default=False, description="Ignore if the data source already exists")
 
+class DataModelMeta(type):
+    @property
+    def __data_source__(cls) -> DataSource:
+        return SQLite3DataSource(database=cls.__orm_config__.db_location)
 
-class DataModel(BaseModel):
+class CombinedMeta(DataModelMeta, BaseModel.__class__):
+    pass
+
+class DataModel(BaseModel, metaclass=CombinedMeta):
     """
     A base class for data models that interact with a data source.
 
@@ -26,11 +33,11 @@ class DataModel(BaseModel):
     """
     
     __orm_config__: ClassVar[ORMConfig] = ORMConfig()
-
-    __data_source__ = SQLite3DataSource(database=__orm_config__.db_location)
     
-    def model_post_init(self, __context):
-        self.__data_source__ = SQLite3DataSource(database=self.__orm_config__.db_location)
+    def __getattribute__(self, name):
+        if name == "__data_source__":
+            return type(self).__data_source__
+        return super().__getattribute__(name)
 
     @classmethod
     def get_primary_key(cls) -> str:
