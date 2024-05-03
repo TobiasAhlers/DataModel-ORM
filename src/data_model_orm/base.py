@@ -16,6 +16,7 @@ class DataModel(BaseModel):
     A base class for data models that interact with a data source.
 
     Attributes:
+        __orm_config__ (ORMConfig): The configuration for the data model. Default is ORMConfig().
         __data_source__ (DataSource): The data source to interact with. Default is SQLite3DataSource.
 
     Example:
