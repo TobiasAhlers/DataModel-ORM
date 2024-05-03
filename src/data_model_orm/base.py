@@ -7,13 +7,18 @@ from .data_sources.sqlite3 import SQLite3DataSource
 
 
 class ORMConfig(BaseModel):
-    db_location: str = Field(default="database.db", description="Database location")
+    db_path: str = Field(default="database.db", description="Database location")
+    db_backend: type = Field(default=SQLite3DataSource, description="Database backend")
     ignore_if_exists: bool = Field(default=False, description="Ignore if the data source already exists")
 
 class DataModelMeta(type):
     @property
-    def __data_source__(cls) -> DataSource:
-        return SQLite3DataSource(database=cls.__orm_config__.db_location)
+    def __data_source__(self) -> DataSource:
+        return self.__orm_config__.db_backend(database=self.__orm_config__.db_path)
+    
+    @__data_source__.setter
+    def __data_source__(self, value):
+        raise AttributeError("Can't set attribute")
 
 class CombinedMeta(DataModelMeta, BaseModel.__class__):
     pass
@@ -38,6 +43,11 @@ class DataModel(BaseModel, metaclass=CombinedMeta):
         if name == "__data_source__":
             return type(self).__data_source__
         return super().__getattribute__(name)
+    
+    def __setattr__(self, name, value):
+        if name == "__data_source__":
+            raise AttributeError("Can't set attribute")
+        super().__setattr__(name, value)
 
     @classmethod
     def get_primary_key(cls) -> str:
