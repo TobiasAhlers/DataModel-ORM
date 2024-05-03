@@ -1,2 +1,2 @@
-from .base import DataModel
+from .base import DataModel, ORMConfig
 from .data_sources import *

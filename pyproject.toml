@@ -19,6 +19,9 @@ dependencies = [
     "pydantic"
 ]
 
+[project.optional-dependencies]
+test = ["pytest>=6.0"]
+
 [project.urls]
 Homepage = "https://github.com/pypa/sampleproject"
 Issues = "https://github.com/pypa/sampleproject/issues"

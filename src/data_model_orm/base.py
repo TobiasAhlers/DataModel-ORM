@@ -1,9 +1,14 @@
 from typing import ClassVar, Self
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .data_sources import DataSource
 from .data_sources.sqlite3 import SQLite3DataSource
+
+
+class ORMConfig(BaseModel):
+    db_location: str = Field(default="database.db", description="Database location")
+    ignore_if_exists: bool = Field(default=False, description="Ignore if the data source already exists")
 
 
 class DataModel(BaseModel):
@@ -18,8 +23,10 @@ class DataModel(BaseModel):
             name: str
             age: int
     """
+    
+    __orm_config__: ClassVar[ORMConfig] = ORMConfig()
 
-    __data_source__: ClassVar[DataSource] = SQLite3DataSource(database="database.db")
+    __data_source__: ClassVar[DataSource] = SQLite3DataSource(database=__orm_config__.db_location)
 
     @classmethod
     def get_primary_key(cls) -> str:
@@ -44,7 +51,7 @@ class DataModel(BaseModel):
         raise ValueError(f"Missing primary key in {cls.__name__}")
 
     @classmethod
-    def create_source(cls, ignore_if_exists: bool = False) -> None:
+    def create_source(cls, ignore_if_exists: bool = __orm_config__.ignore_if_exists) -> None:
         """
         Create the data source for the data model.
 
