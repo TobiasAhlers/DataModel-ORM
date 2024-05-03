@@ -27,7 +27,10 @@ class DataModel(BaseModel):
     
     __orm_config__: ClassVar[ORMConfig] = ORMConfig()
 
-    __data_source__: ClassVar[DataSource] = SQLite3DataSource(database=__orm_config__.db_location)
+    __data_source__ = SQLite3DataSource(database=__orm_config__.db_location)
+    
+    def model_post_init(self, __context):
+        self.__data_source__ = SQLite3DataSource(database=self.__orm_config__.db_location)
 
     @classmethod
     def get_primary_key(cls) -> str:
