@@ -143,7 +143,10 @@ def convert_query_result_to_data_model(
     args = {}
     for i, field_name in enumerate(data_model.model_fields.keys()):
         type_ = extract_type(data_model.model_fields[field_name].annotation)
-        args[field_name] = convert_value(record[i], type_)
+        if is_nullable(data_model.model_fields[field_name]) and record[i] == None:
+            args[field_name] = None
+        else:
+            args[field_name] = convert_value(record[i], type_)
     return data_model(**args)
 
 
