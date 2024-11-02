@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "datamodel_orm"
-version = "0.1.0a"
+version = "0.1.0"
 authors = [
   { name="Tobias Ahlers", email="93325697+TobiasAhlers@users.noreply.github.com" },
 ]
