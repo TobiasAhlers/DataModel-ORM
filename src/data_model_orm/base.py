@@ -1,116 +1,93 @@
 from typing import ClassVar, Self
 
-from pydantic import BaseModel
-
-from .data_sources import DataSource
-from .data_sources.sqlite3 import SQLite3DataSource
+from sqlmodel import SQLModel, Field, select, Session
+from sqlalchemy import Engine
 
 
-class DataModel(BaseModel):
+class DataModel(SQLModel):
     """
-    A base class for data models that interact with a data source.
-
-    Attributes:
-        __data_source__ (DataSource): The data source to interact with. Default is SQLite3DataSource.
-
-    Example:
-        class User(DataModel):
-            name: str
-            age: int
+    Base class for data models using SQLModel and SQLAlchemy.
+    Provides common methods for database operations.
     """
 
-    __data_source__: ClassVar[DataSource] = SQLite3DataSource(database="database.db")
+    __engine__: ClassVar[Engine]
 
     @classmethod
     def get_primary_key(cls) -> str:
         """
-        Get the primary key field of the data model.
+        Get the primary key field name of the model.
 
         Returns:
             str: The name of the primary key field.
 
         Raises:
-            ValueError: If no primary key is found.
-
-        Example:
-            >>> User.get_primary_key()
-            'id'
+            ValueError: If no primary key is found in the model.
         """
         for field_name, field in cls.model_fields.items():
-            if not field.json_schema_extra:
-                field.json_schema_extra = {}
-            if field.json_schema_extra.get("primary_key", False):
+            if field.primary_key:
                 return field_name
         raise ValueError(f"Missing primary key in {cls.__name__}")
 
     @classmethod
     def create_source(cls, ignore_if_exists: bool = False) -> None:
         """
-        Create the data source for the data model.
+        Create the database table for the model.
 
         Args:
-            ignore_if_exists (bool, optional): If True, ignore the operation if the data source already exists. Default is False.
-
-        Example:
-            >>> User.create_source(ignore_if_exists=True)
+            ignore_if_exists (bool): If True, will not raise an error if the table already exists.
         """
-        cls.__data_source__.create_source(cls, ignore_if_exists)
+        cls.metadata.create_all(
+            bind=cls.__engine__, checkfirst=ignore_if_exists, tables=[cls.__table__]
+        )
 
     @classmethod
     def get_one(cls, **where) -> Self | None:
         """
-        Get a single record that matches the given conditions.
+        Retrieve a single record from the database that matches the given criteria.
 
         Args:
-            **where: Conditions to match.
+            **where: Arbitrary keyword arguments representing the filter criteria.
 
         Returns:
-            Self | None: The matching record, or None if no record matches.
-
-        Example:
-            >>> user = User.get_one(name='John Doe')
-            >>> print(user)
-            User(name='John Doe', age=30)
+            Self | None: An instance of the model if a match is found, otherwise None.
         """
-        return cls.__data_source__.get_one(data_model=cls, where=where)
+        with Session(cls.__engine__) as session:
+            statement = select(cls)
+            for key, value in where.items():
+                statement = statement.where(getattr(cls, key) == value)
+            return session.exec(statement).first()
 
     @classmethod
     def get_all(cls, **where) -> list[Self]:
         """
-        Get all records that match the given conditions.
+        Retrieve all records from the database that match the given criteria.
 
         Args:
-            **where: Conditions to match.
+            **where: Arbitrary keyword arguments representing the filter criteria.
 
         Returns:
-            list[Self]: A list of matching records.
-
-        Example:
-            >>> users = User.get_all(age=30)
-            >>> print(users)
-            [User(name='John Doe', age=30), User(name='Jane Doe', age=30)]
+            list[Self]: A list of instances of the model that match the criteria.
         """
-        return cls.__data_source__.get_all(data_model=cls, where=where)
+        with Session(cls.__engine__) as session:
+            statement = select(cls)
+            for key, value in where.items():
+                statement = statement.where(getattr(cls, key) == value)
+            return session.exec(statement).all()
 
     def save(self) -> None:
         """
-        Save the current record to the data source.
-
-        Example:
-            >>> user = User(name='John Doe', age=30)
-            >>> user.save()
+        Save the current instance to the database.
+        If the instance is new, it will be added. If it already exists, it will be updated.
         """
-
-        response = self.__data_source__.save(self)
-        primary_key = self.get_primary_key()
-        setattr(self, primary_key, response)
+        with Session(self.__engine__) as session:
+            session.add(self)
+            session.commit()
+            session.refresh(self)
 
     def delete(self) -> None:
         """
-        Delete the current record from the data source.
-
-        Example:
-            >>> user = User.get_one(name='John Doe')
-            >>> user.delete()
+        Delete the current instance from the database.
         """
-        self.__data_source__.delete(self)
+        with Session(self.__engine__) as session:
+            session.delete(self)
+            session.commit()
