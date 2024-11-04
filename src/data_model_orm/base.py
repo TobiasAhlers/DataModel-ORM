@@ -80,6 +80,12 @@ class DataModel(SQLModel):
         If the instance is new, it will be added. If it already exists, it will be updated.
         """
         with Session(self.__engine__) as session:
+            if getattr(self, self.get_primary_key()) is not None:
+                entry = session.get(self.__class__, getattr(self, self.get_primary_key()))
+                if entry:
+                    for key, value in self.model_dump().items():
+                        setattr(entry, key, value)
+                    self = entry
             session.add(self)
             session.commit()
             session.refresh(self)
