@@ -20,5 +20,5 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/pypa/sampleproject"
-Issues = "https://github.com/pypa/sampleproject/issues"
+Homepage = "https://github.com/TobiasAhlers/DataModel-ORM"
+Issues = "https://github.com/TobiasAhlers/DataModel-ORM/issues"
