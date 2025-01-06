@@ -6,7 +6,7 @@ pluggy==1.5.0
 pydantic==2.10.4
 pydantic_core==2.27.2
 pytest==8.3.4
-setuptools==75.6.0
+setuptools==75.7.0
 SQLAlchemy==2.0.36
 sqlmodel==0.0.22
 typing_extensions==4.12.2
